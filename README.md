@@ -6,6 +6,12 @@ The app supports audio transcription, meeting summarization, action-item extract
 This project was built as a practical AI Engineering portfolio project to demonstrate the design of a modular AI pipeline using both closed-source and open-source model options.
 
 ---
+## 📸 Screenshots
+
+### Application UI
+![Application UI](images/app-ui.jpg)
+
+---
 
 ## 🚀 Features
 
