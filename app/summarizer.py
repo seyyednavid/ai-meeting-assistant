@@ -4,6 +4,8 @@ import os
 
 load_dotenv()
 
+OLLAMA_QWEN_MODEL = "qwen2.5:3b"
+
 SYSTEM_PROMPT = """
 You are an AI assistant that creates professional meeting minutes from transcripts.
 
@@ -51,12 +53,19 @@ Write 2-3 short takeaways from the meeting.
 
 
 def summarize_openai(transcript):
+    """
+    Generate meeting minutes using OpenAI's GPT model.
+    """
+
     api_key = os.getenv("OPENAI_API_KEY")
 
     if not api_key:
         raise ValueError("OPENAI_API_KEY is missing. Please add it to your .env file.")
 
     client = OpenAI(api_key=api_key)
+
+    # ✅ limit size BEFORE using it
+    transcript = transcript[:20000]
 
     user_prompt = f"""
 Create meeting minutes from the full transcript below.
@@ -77,7 +86,92 @@ Transcript:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ],
-        temperature=0
+        temperature=0,
+        timeout=60
     )
 
     return response.choices[0].message.content
+
+
+
+
+
+def summarize_ollama(transcript):
+    """
+    Generate meeting minutes using a local Qwen model via Ollama.
+
+    The transcript is truncated to reduce processing time and
+    avoid context length issues.
+
+    Args:
+        transcript (str): Full meeting transcript.
+
+    Returns:
+        str: Structured meeting minutes in markdown format.
+
+    Raises:
+        RuntimeError: If the Ollama request fails.
+    """
+
+    client = OpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama"
+    )
+
+    transcript_excerpt = transcript[:12000]
+
+    user_prompt = f"""
+Create structured meeting minutes from this transcript.
+
+Rules:
+- Return only clean markdown
+- Do not add explanations
+- Do not invent information
+- If missing info → write "Not specified"
+- If no action items → write exactly: No clear action items identified.
+
+Format:
+
+# Meeting Minutes
+
+## Meeting Overview
+- Date:
+- Location:
+- Attendees:
+
+## Summary
+
+## Key Discussion Points
+
+## Decisions
+
+## Action Items
+
+## Takeaways
+
+Transcript:
+{transcript_excerpt}
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model=OLLAMA_QWEN_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You generate structured meeting minutes."
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            temperature=0,
+            max_tokens=800,
+            timeout=180
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        raise RuntimeError(f"Ollama summarization failed: {e}")

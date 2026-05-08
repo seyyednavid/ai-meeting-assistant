@@ -1,10 +1,16 @@
+import gradio as gr
+from app.pipeline import run_pipeline
 import html
 import os
 import time
 from datetime import datetime
+import shutil
+import uuid
 
-import gradio as gr
-from app.pipeline import run_pipeline
+
+
+safe_dir = "temp_audio"
+os.makedirs(safe_dir, exist_ok=True)
 
 
 def save_minutes_as_markdown(summary):
@@ -24,7 +30,30 @@ def save_minutes_as_markdown(summary):
     return file_path
 
 
-def process_audio(file, model_choice):
+def process_audio(file, model_choice, summary_model_choice):
+    """
+    Process an uploaded audio file and generate meeting minutes.
+
+    This function:
+    - Copies the uploaded file to a temporary safe location
+    - Runs the transcription and summarization pipeline
+    - Formats the transcript for display
+    - Saves the generated meeting minutes as a markdown file
+    - Returns results and processing details for the UI
+
+    Args:
+        file (str): Path to the uploaded audio file from Gradio.
+        model_choice (str): Selected transcription model from the UI.
+        summary_model_choice (str): Selected summarization model from the UI.
+
+    Returns:
+        tuple:
+            - transcript_html (str): Formatted transcript for display
+            - summary (str): Generated meeting minutes (markdown)
+            - markdown_file (str or None): Path to saved markdown file
+            - processing_details (str): Information about processing steps
+    """
+    
     if file is None:
         error_html = """
         <div class="scroll-box transcript-box">
@@ -40,18 +69,45 @@ def process_audio(file, model_choice):
         return error_html, "", None, processing_details
 
     start_time = time.time()
+    safe_path = None  
 
     try:
-        if model_choice == "OpenAI Transcription":
-            model_key = "openai"
+        # Map UI transcription choice
+        if model_choice == "OpenAI GPT-4o Mini Transcribe":
+            transcription_model_key = "openai"
         else:
-            model_key = "whisper"
+            transcription_model_key = "whisper"
 
-        transcript, summary = run_pipeline(file, model_key)
+        # Map UI summarization choice
+        if summary_model_choice == "OpenAI GPT-4o Mini":
+            summarization_model_key = "openai"
+        else:
+            summarization_model_key = "ollama"
 
+        # 👇 Create safe temp file
+        unique_name = f"{uuid.uuid4()}_{os.path.basename(file)}"
+        safe_path = os.path.join(safe_dir, unique_name)
+
+        # Copy file safely (handles Windows lock)
+        for _ in range(3):
+            try:
+                shutil.copy(file, safe_path)
+                break
+            except PermissionError:
+                time.sleep(0.5)
+
+        # Run pipeline
+        transcript, summary = run_pipeline(
+            safe_path,
+            transcription_model_key,
+            summarization_model_key
+        )
+
+        # Processing stats
         processing_time = time.time() - start_time
         transcript_length = len(transcript)
 
+        # Safe HTML display
         safe_transcript = html.escape(transcript)
 
         transcript_html = f"""
@@ -60,13 +116,14 @@ def process_audio(file, model_choice):
         </div>
         """
 
+        # Save markdown
         markdown_file = save_minutes_as_markdown(summary)
         output_filename = os.path.basename(markdown_file)
 
         processing_details = f"""
         ### Processing Details
         - **Transcription model:** {model_choice}
-        - **Summarization model:** OpenAI GPT
+        - **Summarization model:** {summary_model_choice}
         - **Processing time:** {processing_time:.2f} seconds
         - **Transcript length:** {transcript_length:,} characters
         - **Output file:** {output_filename}
@@ -88,12 +145,20 @@ def process_audio(file, model_choice):
         ### Processing Details
         - **Status:** Failed
         - **Transcription model:** {model_choice}
-        - **Summarization model:** OpenAI GPT
+        - **Summarization model:** {summary_model_choice}
         - **Processing time before error:** {processing_time:.2f} seconds
         - **Error:** {safe_error}
         """
 
         return error_html, "", None, processing_details
+
+    finally:
+        # 🧹 Always clean temp file
+        if safe_path and os.path.exists(safe_path):
+            try:
+                os.remove(safe_path)
+            except Exception:
+                pass
 
 
 custom_css = """
@@ -192,11 +257,20 @@ with gr.Blocks(
 
             model_choice = gr.Dropdown(
                 choices=[
-                    "OpenAI Transcription",
-                    "HuggingFace Whisper"
+                    "OpenAI GPT-4o Mini Transcribe",
+                    "HuggingFace Whisper Base"
                 ],
-                value="OpenAI Transcription",
+                value="OpenAI GPT-4o Mini Transcribe",
                 label="Transcription Model"
+            )
+
+            summary_model_choice = gr.Dropdown(
+                choices=[
+                    "OpenAI GPT-4o Mini",
+                    "Local qwen-2.5 3B"
+                ],
+                value="OpenAI GPT-4o Mini",
+                label="Summarization Model"
             )
 
             run_button = gr.Button(
@@ -237,7 +311,8 @@ with gr.Blocks(
         fn=process_audio,
         inputs=[
             audio_input,
-            model_choice
+            model_choice,
+            summary_model_choice
         ],
         outputs=[
             transcript_output,
@@ -249,4 +324,4 @@ with gr.Blocks(
     )
 
 
-demo.launch()
+demo.launch(inbrowser=True)

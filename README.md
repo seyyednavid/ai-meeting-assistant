@@ -6,37 +6,46 @@ The app supports audio transcription, meeting summarization, action-item extract
 This project was built as a practical AI Engineering portfolio project to demonstrate the design of a modular AI pipeline using both closed-source and open-source model options.
 
 ---
+
 ## 📸 Screenshots
 
 ### Application UI
+
 ![Application UI](images/app-ui.jpg)
 
 ---
 
 ## 🚀 Features
 
-- Upload meeting audio files
-- Transcribe audio using:
-  - OpenAI transcription API
-  - HuggingFace Whisper
-- Generate structured meeting minutes using OpenAI GPT
-- View the full transcript
-- View professional meeting minutes
-- Extract:
-  - Meeting overview
-  - Summary
-  - Key discussion points
-  - Decisions
-  - Action items
-  - Takeaways
-- Download generated meeting minutes as a Markdown file
-- Display processing details:
-  - transcription model used
-  - summarization model used
-  - processing time
-  - transcript length
-  - output filename
-- Interactive Gradio user interface
+* Upload meeting audio files
+* Transcribe audio using:
+
+  * OpenAI transcription API
+  * HuggingFace Whisper
+* Generate structured meeting minutes using:
+
+  * OpenAI GPT
+  * Local Qwen 2.5 (3B) via Ollama  
+* View the full transcript
+* View professional meeting minutes
+* Extract:
+
+  * Meeting overview
+  * Summary
+  * Key discussion points
+  * Decisions
+  * Action items
+  * Takeaways
+* Download generated meeting minutes as a Markdown file
+* Display processing details:
+
+  * transcription model used
+  * summarization model used
+  * processing time
+  * transcript length
+  * output filename
+* Interactive Gradio user interface
+* Safe temporary file handling (no audio stored permanently) 
 
 ---
 
@@ -46,13 +55,13 @@ The goal of this project is to build a practical AI assistant that can help user
 
 The project demonstrates:
 
-- speech-to-text processing
-- large language model summarization
-- prompt engineering
-- modular AI pipeline design
-- open-source vs closed-source model trade-offs
-- user-facing AI application development
-- Markdown output generation
+* speech-to-text processing
+* large language model summarization
+* prompt engineering
+* modular AI pipeline design
+* open-source vs closed-source model trade-offs
+* user-facing AI application development
+* Markdown output generation
 
 ---
 
@@ -68,7 +77,8 @@ Transcription
 Transcript
     ↓
 Meeting Minutes Generation
-    └── OpenAI GPT
+    ├── OpenAI GPT
+    └── Local Qwen (Ollama)  
     ↓
 Results
     ├── Transcript tab
@@ -96,6 +106,8 @@ ai-meeting-assistant/
 │
 ├── outputs/
 │   └── generated meeting minutes files
+│
+├── temp_audio/   <-- temporary files (auto-deleted)  
 │
 ├── .env
 ├── .gitignore
@@ -151,22 +163,28 @@ Located in:
 app/summarizer.py
 ```
 
-This module converts transcripts into structured meeting minutes using OpenAI GPT.
+This module converts transcripts into structured meeting minutes.
 
-The generated output includes:
+It supports:
 
-- Meeting overview
-- Summary
-- Key discussion points
-- Decisions
-- Action items
-- Takeaways
-
-The summarization model is currently:
+#### OpenAI GPT
 
 ```text
 gpt-4o-mini
 ```
+
+High-quality and fast cloud-based summarization.
+
+#### Local Qwen (NEW)
+
+```text
+qwen2.5:3b (via Ollama)
+```
+
+* Runs locally
+* No API cost
+* Slightly slower on CPU
+* Includes automatic fallback to OpenAI if it fails
 
 ---
 
@@ -184,6 +202,11 @@ This module connects transcription and summarization into one workflow:
 Audio file → Transcript → Meeting minutes
 ```
 
+Includes:
+
+* Model switching (OpenAI / Whisper / Qwen)
+* Fallback handling (Ollama → OpenAI) 
+
 ---
 
 ### 4. Gradio UI
@@ -196,13 +219,14 @@ ui/gradio_app.py
 
 The Gradio interface allows users to:
 
-- upload audio
-- choose the transcription model
-- generate meeting minutes
-- view transcript
-- view meeting minutes
-- download Markdown output
-- check processing details
+* upload audio
+* choose the transcription model
+* choose the summarization model 
+* generate meeting minutes
+* view transcript
+* view meeting minutes
+* download Markdown output
+* check processing details
 
 ---
 
@@ -251,12 +275,6 @@ Create a `.env` file in the project root:
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-You can also create a `.env.example` file:
-
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
 Do not commit your real `.env` file to GitHub.
 
 ---
@@ -265,47 +283,36 @@ Do not commit your real `.env` file to GitHub.
 
 HuggingFace Whisper requires FFmpeg to process audio files.
 
-### Windows
+---
 
-Install with:
+## 🧠 Ollama Requirement (NEW)
+
+To use the local Qwen model:
+
+1. Install Ollama:
 
 ```bash
-winget install Gyan.FFmpeg
+https://ollama.com
 ```
 
-Then restart your terminal or VS Code and check:
+2. Pull the model:
 
 ```bash
-ffmpeg -version
+ollama pull qwen2.5:3b
 ```
 
-### macOS
+3. Run Ollama:
 
 ```bash
-brew install ffmpeg
-```
-
-### Linux
-
-```bash
-sudo apt update
-sudo apt install ffmpeg
+ollama run qwen2.5:3b
 ```
 
 ---
 
 ## ▶️ Running the App
 
-Run the Gradio app from the project root:
-
 ```bash
 python -m ui.gradio_app
-```
-
-Then open the local URL shown in the terminal, usually:
-
-```text
-http://127.0.0.1:7860
 ```
 
 ---
@@ -313,109 +320,48 @@ http://127.0.0.1:7860
 ## 🧪 How to Use
 
 1. Upload a meeting audio file.
-2. Choose a transcription model:
-   - OpenAI Transcription
-   - HuggingFace Whisper
-3. Click **Generate Minutes**.
-4. View the transcript in the **Transcript** tab.
-5. View generated meeting minutes in the **Meeting Minutes** tab.
-6. Download the meeting minutes as a `.md` file.
-7. Review processing details in the left panel.
+2. Choose transcription model.
+3. Choose summarization model (OpenAI or Local Qwen). 
+4. Click **Generate Minutes**.
+5. View results.
+6. Download markdown file.
 
 ---
 
 ## 📊 Model Options and Trade-offs
 
-| Component | Model | Type | Notes |
-|---|---|---|---|
-| Transcription | OpenAI `gpt-4o-mini-transcribe` | Closed-source API | Fast and reliable |
-| Transcription | HuggingFace `openai/whisper-base` | Open-source/local | Free but slower on CPU |
-| Summarization | OpenAI `gpt-4o-mini` | Closed-source API | Produces structured and high-quality meeting minutes |
+| Component     | Model       | Type  | Notes        |
+| ------------- | ----------- | ----- | ------------ |
+| Transcription | OpenAI      | API   | Fast         |
+| Transcription | Whisper     | Local | Free         |
+| Summarization | OpenAI GPT  | API   | High quality |
+| Summarization | Qwen 2.5 3B | Local | Free         |
 
 ---
 
 ## ⚠️ Current Limitations
 
-- HuggingFace Whisper can be slow for long audio files when running on CPU.
-- Speaker diarization is not included in Version 1.
-- The summarization model is currently OpenAI only.
-- Very long transcripts may require chunking in future versions.
-- Attendee names may be affected by transcription accuracy.
+* HuggingFace Whisper can be slow for long audio files when running on CPU.
+* Local models may be slower than OpenAI.
+* Very long transcripts are truncated.
 
 ---
 
 ## 🔮 Future Improvements
 
-Planned improvements include:
-
-- Add open-source summarization model
-- Add transcript caching to avoid re-processing the same audio file
-- Add speaker diarization
-- Export to PDF
-- Add Docker support
-- Add cloud deployment
-- Add better support for long meetings through transcript chunking
-- Add model comparison dashboard for speed, cost, and quality
+* Add speaker diarization
+* Add transcript chunking
+* Add Docker support
+* Add cloud deployment
 
 ---
 
 ## 🧠 What I Learned
 
-This project helped me practise:
-
-- building modular AI applications
-- integrating speech-to-text models
-- using OpenAI APIs
-- using HuggingFace pipelines
-- designing prompt templates for structured outputs
-- handling environment variables
-- building an interactive Gradio interface
-- tracking processing metadata
-- exporting generated content
-
----
-
-## 📌 Example Output
-
-The app generates meeting minutes in this format:
-
-```markdown
-# Meeting Minutes
-
-## Meeting Overview
-- Date:
-- Location:
-- Attendees:
-
-## Summary
-
-## Key Discussion Points
-
-## Decisions
-
-## Action Items
-
-## Takeaways
-```
-
----
-
-## 🛠️ Technologies Used
-
-- Python
-- Gradio
-- OpenAI API
-- HuggingFace Transformers
-- Whisper
-- PyTorch
-- FFmpeg
-- python-dotenv
-
----
-
-## 📄 License
-
-This project is intended for learning and portfolio purposes.
+* Hybrid AI systems (local + cloud)
+* Model fallback strategies
+* File handling and robustness
+* Real-world AI pipeline design
 
 ---
 

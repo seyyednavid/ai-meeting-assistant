@@ -10,6 +10,16 @@ whisper_pipe = None
 
 
 def transcribe_openai(file_path):
+    """
+    Transcribe an audio file using OpenAI's transcription API.
+
+    Args:
+        file_path (str): Path to the audio file.
+
+    Returns:
+        str: Transcribed text.
+    """
+    
     api_key = os.getenv("OPENAI_API_KEY")
 
     if not api_key:
@@ -27,7 +37,20 @@ def transcribe_openai(file_path):
 
 
 
+
 def transcribe_whisper(file_path):
+    """
+    Transcribe an audio file using a local Whisper model.
+
+    The model is loaded only once (lazy loading) and reused
+    for subsequent calls to improve performance.
+
+    Args:
+        file_path (str): Path to the audio file.
+
+    Returns:
+        str: Transcribed text.
+    """
     global whisper_pipe
     
     if whisper_pipe is None:
